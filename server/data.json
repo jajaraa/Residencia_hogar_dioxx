@@ -1,0 +1,35 @@
+{
+  "patients": [
+    {
+      "nombre": "Pablo",
+      "apellido": "HERNANDEZ",
+      "fechaNacimiento": "1997-07-22",
+      "rut": "19.760.277-5",
+      "telefonoEmergencia": "+56991516710",
+      "contactoEmergencia": "Pedro Olivares",
+      "genero": "masculino",
+      "medicamentos": [],
+      "id": 1730087204095,
+      "alergias": [],
+      "enfermedades": [],
+      "patologias": [],
+      "registrosEntradaSalida": []
+    },
+    {
+      "nombre": "LUCERO",
+      "apellido": "LEYVA",
+      "fechaNacimiento": "1997-07-22",
+      "rut": "19.760.277-5",
+      "telefonoEmergencia": "+56991516710",
+      "contactoEmergencia": "LUCERO PEREZ",
+      "genero": "masculino",
+      "medicamentos": [],
+      "id": 1730087295879,
+      "alergias": [],
+      "enfermedades": [],
+      "patologias": [],
+      "registrosEntradaSalida": []
+    }
+  ],
+  "staff": []
+}
