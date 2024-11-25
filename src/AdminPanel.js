@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Home, Users, FilePlus, UserPlus, LogIn, Trash2, Edit, ChevronRight } from 'lucide-react';
-import { api } from './services/api';
+
 // Componente de Alerta personalizado
 const Alert = ({ children, type }) => {
   const types = {
@@ -28,12 +28,32 @@ const WelcomeView = () => (
 
 const AdminPanel = () => {
   const [currentView, setCurrentView] = useState('welcome');
-  const [patients, setPatients] = useState([]);
-  const [staff, setStaff] = useState([]); // Nuevo estado para el personal
+  const [patients, setPatients] = useState(() => {
+    // Cargar pacientes del localStorage al iniciar
+    const savedPatients = localStorage.getItem('patients');
+    return savedPatients ? JSON.parse(savedPatients) : [];
+  });
+  
+  const [staff, setStaff] = useState(() => {
+    // Cargar personal del localStorage al iniciar
+    const savedStaff = localStorage.getItem('staff');
+    return savedStaff ? JSON.parse(savedStaff) : [];
+  });
+  
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errors, setErrors] = useState({});
   const [editMode, setEditMode] = useState(false);
+
+  // Guardar pacientes en localStorage cada vez que cambien
+  useEffect(() => {
+    localStorage.setItem('patients', JSON.stringify(patients));
+  }, [patients]);
+
+  // Guardar personal en localStorage cada vez que cambie
+  useEffect(() => {
+    localStorage.setItem('staff', JSON.stringify(staff));
+  }, [staff]);
 
   const validateForm = (formData) => {
     const newErrors = {};
@@ -47,8 +67,7 @@ const AdminPanel = () => {
     return newErrors;
   };
 
-
-
+  
 
 
 
@@ -600,20 +619,27 @@ const AdminPanel = () => {
   };
 
   // Componente de Control de Entradas y Salidas
-const EntryExitControlView = () => {
-  const [registroActual, setRegistroActual] = useState({
-    tipo: 'salida', // 'salida' o 'entrada'
-    fecha: '',
-    hora: '',
-    acompanante: '',
-    telefono: '',
-    pacienteId: ''
-  });
-  const [errors, setErrors] = useState({});
-  const [showSuccess, setShowSuccess] = useState(false);
+  const EntryExitControlView = () => {
+    const [registroActual, setRegistroActual] = useState({
+      tipo: 'salida',
+      fecha: '',
+      hora: '',
+      acompanante: '',
+      telefono: '',
+      pacienteId: '',
+      dispositivoSeguimiento: {
+        tipo: '', // 'telefono' o 'airtag'
+        numero: '', // Para teléfono
+        nombreAirtag: '', // Para AirTag
+        identificador: '' // Número de serie o identificador del AirTag
+      }
+    });
+    
+    const [errors, setErrors] = useState({});
+    const [showSuccess, setShowSuccess] = useState(false);
 
-  // Validar teléfono chileno
-  const validarTelefono = (telefono) => {
+   // Validar teléfono chileno
+   const validarTelefono = (telefono) => {
     const telefonoRegex = /^\+569\d{8}$/;
     return telefonoRegex.test(telefono);
   };
@@ -630,16 +656,33 @@ const EntryExitControlView = () => {
       } else if (!validarTelefono(data.telefono)) {
         newErrors.telefono = "El teléfono debe tener formato +569XXXXXXXX";
       }
+
+            // Validación de dispositivo de seguimiento
+      if (!data.dispositivoSeguimiento.tipo) {
+        newErrors.dispositivoTipo = "Debe seleccionar un tipo de dispositivo de seguimiento";
+      } else {
+        if (data.dispositivoSeguimiento.tipo === 'telefono' && !data.dispositivoSeguimiento.numero) {
+          newErrors.dispositivoNumero = "Debe ingresar el número de teléfono del dispositivo";
+        } else if (data.dispositivoSeguimiento.tipo === 'airtag') {
+          if (!data.dispositivoSeguimiento.nombreAirtag) {
+            newErrors.dispositivoNombre = "Debe ingresar un nombre para el AirTag";
+          }
+          if (!data.dispositivoSeguimiento.identificador) {
+            newErrors.dispositivoIdentificador = "Debe ingresar el identificador del AirTag";
+          }
+        }
+      }
     }
     return newErrors;
   };
+
+  
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const newErrors = validateForm(registroActual);
 
     if (Object.keys(newErrors).length === 0) {
-      // Encontrar el paciente
       const paciente = patients.find(p => p.id === registroActual.pacienteId);
       
       if (!paciente) {
@@ -647,7 +690,6 @@ const EntryExitControlView = () => {
         return;
       }
 
-      // Actualizar el paciente con el nuevo registro
       const updatedPatient = {
         ...paciente,
         registrosEntradaSalida: [
@@ -663,7 +705,13 @@ const EntryExitControlView = () => {
         hora: '',
         acompanante: '',
         telefono: '',
-        pacienteId: ''
+        pacienteId: '',
+        dispositivoSeguimiento: {
+          tipo: '',
+          numero: '',
+          nombreAirtag: '',
+          identificador: ''
+        }
       });
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -690,20 +738,21 @@ const EntryExitControlView = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
+              {/* Campos existentes */}
               <div>
                 <label className="block text-gray-700 mb-2">Paciente</label>
                 <select
-  className={`w-full p-2 border rounded focus:border-sky-500 ${errors.pacienteId ? 'border-red-500' : ''}`}
-  value={registroActual.pacienteId}
-  onChange={(e) => setRegistroActual({...registroActual, pacienteId: parseInt(e.target.value)})}
->
-  <option value="">Seleccione paciente...</option>
-  {patients.map(patient => (
-    <option key={patient.id} value={patient.id}>
-      {patient.nombre} {patient.apellido} - {patient.rut}
-    </option>
-  ))}
-</select>
+                  className={`w-full p-2 border rounded focus:border-sky-500 ${errors.pacienteId ? 'border-red-500' : ''}`}
+                  value={registroActual.pacienteId}
+                  onChange={(e) => setRegistroActual({...registroActual, pacienteId: parseInt(e.target.value)})}
+                >
+                  <option value="">Seleccione paciente...</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.nombre} {patient.apellido} - {patient.rut}
+                    </option>
+                  ))}
+                </select>
                 {errors.pacienteId && <p className="text-red-500 text-sm mt-1">{errors.pacienteId}</p>}
               </div>
 
@@ -742,43 +791,134 @@ const EntryExitControlView = () => {
               </div>
 
               {registroActual.tipo === 'salida' && (
-                <>
-                  <div>
-                    <label className="block text-gray-700 mb-2">Nombre del Acompañante</label>
-                    <input
-                      type="text"
-                      className={`w-full p-2 border rounded focus:border-sky-500 ${errors.acompanante ? 'border-red-500' : ''}`}
-                      value={registroActual.acompanante}
-                      onChange={(e) => setRegistroActual({...registroActual, acompanante: e.target.value})}
-                      placeholder="Nombre completo"
-                    />
-                    {errors.acompanante && <p className="text-red-500 text-sm mt-1">{errors.acompanante}</p>}
-                  </div>
+  <>
+    <div>
+      <label className="block text-gray-700 mb-2">Nombre del Acompañante</label>
+      <input
+        type="text"
+        className={`w-full p-2 border rounded focus:border-sky-500 ${errors.acompanante ? 'border-red-500' : ''}`}
+        value={registroActual.acompanante}
+        onChange={(e) => setRegistroActual({...registroActual, acompanante: e.target.value})}
+        placeholder="Nombre completo del acompañante"
+      />
+      {errors.acompanante && <p className="text-red-500 text-sm mt-1">{errors.acompanante}</p>}
+    </div>
 
-                  <div>
-                    <label className="block text-gray-700 mb-2">Teléfono del Acompañante</label>
-                    <input
-                      type="text"
-                      className={`w-full p-2 border rounded focus:border-sky-500 ${errors.telefono ? 'border-red-500' : ''}`}
-                      value={registroActual.telefono}
-                      onChange={(e) => setRegistroActual({...registroActual, telefono: e.target.value})}
-                      placeholder="+569XXXXXXXX"
-                    />
-                    {errors.telefono && <p className="text-red-500 text-sm mt-1">{errors.telefono}</p>}
-                  </div>
+    <div>
+      <label className="block text-gray-700 mb-2">Teléfono del Acompañante</label>
+      <input
+        type="text"
+        className={`w-full p-2 border rounded focus:border-sky-500 ${errors.telefono ? 'border-red-500' : ''}`}
+        value={registroActual.telefono}
+        onChange={(e) => setRegistroActual({...registroActual, telefono: e.target.value})}
+        placeholder="+569XXXXXXXX"
+      />
+      {errors.telefono && <p className="text-red-500 text-sm mt-1">{errors.telefono}</p>}
+    </div>
+
+    {/* Campos de dispositivo de seguimiento */}
+    <div>
+      <label className="block text-gray-700 mb-2">Tipo de Dispositivo de Seguimiento</label>
+      <select
+        className={`w-full p-2 border rounded focus:border-sky-500 ${errors.dispositivoTipo ? 'border-red-500' : ''}`}
+        value={registroActual.dispositivoSeguimiento.tipo}
+        onChange={(e) => setRegistroActual({
+          ...registroActual,
+          dispositivoSeguimiento: {
+            ...registroActual.dispositivoSeguimiento,
+            tipo: e.target.value,
+            numero: '',
+            nombreAirtag: '',
+            identificador: ''
+          }
+        })}
+      >
+        <option value="">Seleccione tipo...</option>
+        <option value="telefono">Teléfono Móvil</option>
+        <option value="airtag">AirTag</option>
+      </select>
+      {errors.dispositivoTipo && <p className="text-red-500 text-sm mt-1">{errors.dispositivoTipo}</p>}
+    </div>
+
+                  {registroActual.dispositivoSeguimiento.tipo === 'telefono' && (
+                    <div>
+                      <label className="block text-gray-700 mb-2">Número de Teléfono del Dispositivo</label>
+                      <input
+                        type="text"
+                        className={`w-full p-2 border rounded focus:border-sky-500 ${errors.dispositivoNumero ? 'border-red-500' : ''}`}
+                        placeholder="+569XXXXXXXX"
+                        value={registroActual.dispositivoSeguimiento.numero}
+                        onChange={(e) => setRegistroActual({
+                          ...registroActual,
+                          dispositivoSeguimiento: {
+                            ...registroActual.dispositivoSeguimiento,
+                            numero: e.target.value
+                          }
+                        })}
+                      />
+                      {errors.dispositivoNumero && <p className="text-red-500 text-sm mt-1">{errors.dispositivoNumero}</p>}
+                    </div>
+                  )}
+
+                  {registroActual.dispositivoSeguimiento.tipo === 'airtag' && (
+                    <>
+                      <div>
+                        <label className="block text-gray-700 mb-2">Nombre del AirTag</label>
+                        <input
+                          type="text"
+                          className={`w-full p-2 border rounded focus:border-sky-500 ${errors.dispositivoNombre ? 'border-red-500' : ''}`}
+                          placeholder="Ej: AirTag Personal"
+                          value={registroActual.dispositivoSeguimiento.nombreAirtag}
+                          onChange={(e) => setRegistroActual({
+                            ...registroActual,
+                            dispositivoSeguimiento: {
+                              ...registroActual.dispositivoSeguimiento,
+                              nombreAirtag: e.target.value
+                            }
+                          })}
+                        />
+                        {errors.dispositivoNombre && <p className="text-red-500 text-sm mt-1">{errors.dispositivoNombre}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-gray-700 mb-2">Identificador del AirTag</label>
+                        <input
+                          type="text"
+                          className={`w-full p-2 border rounded focus:border-sky-500 ${errors.dispositivoIdentificador ? 'border-red-500' : ''}`}
+                          placeholder="Ej: AT98X4Z..."
+                          value={registroActual.dispositivoSeguimiento.identificador}
+                          onChange={(e) => setRegistroActual({
+                            ...registroActual,
+                            dispositivoSeguimiento: {
+                              ...registroActual.dispositivoSeguimiento,
+                              identificador: e.target.value
+                            }
+                          })}
+                        />
+                        {errors.dispositivoIdentificador && <p className="text-red-500 text-sm mt-1">{errors.dispositivoIdentificador}</p>}
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
 
-            <button
-              type="submit"
-              className="w-full bg-sky-600 text-white py-2 px-4 rounded hover:bg-sky-700 transition-colors"
-            >
-              Registrar {registroActual.tipo === 'salida' ? 'Salida' : 'Entrada'}
-            </button>
+            {showSuccess && (
+  <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
+    Registro guardado exitosamente
+  </div>
+)}
+
+<button
+  type="submit"
+  className="w-full bg-sky-600 text-white py-2 px-4 rounded hover:bg-sky-700 transition-colors"
+>
+  Registrar {registroActual.tipo === 'salida' ? 'Salida' : 'Entrada'}
+</button>
+
           </form>
 
-          {/* Historial de registros */}
+          {/* Historial de registros actualizado para mostrar información del dispositivo */}
           {registroActual.pacienteId && (
             <div className="mt-8">
               <h3 className="text-xl font-semibold mb-4">Historial de Registros</h3>
@@ -804,9 +944,21 @@ const EntryExitControlView = () => {
                               Fecha: {registro.fecha} - Hora: {registro.hora}
                             </p>
                             {registro.tipo === 'salida' && (
-                              <p className="text-sm text-gray-600">
-                                Acompañante: {registro.acompanante} - Tel: {registro.telefono}
-                              </p>
+                              <>
+                                <p className="text-sm text-gray-600">
+                                  Acompañante: {registro.acompanante} - Tel: {registro.telefono}
+                                </p>
+                                {registro.dispositivoSeguimiento?.tipo && (
+                                  <p className="text-sm text-gray-600">
+                                    Dispositivo de Seguimiento: {' '}
+                                    {registro.dispositivoSeguimiento.tipo === 'telefono' ? (
+                                      <>Teléfono Móvil: {registro.dispositivoSeguimiento.numero}</>
+                                    ) : (
+                                      <>AirTag: {registro.dispositivoSeguimiento.nombreAirtag} (ID: {registro.dispositivoSeguimiento.identificador})</>
+                                    )}
+                                  </p>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
